@@ -10,10 +10,12 @@ import java.awt.image.BufferedImage
 import java.io.DataInputStream
 import java.io.FileInputStream
 import java.util.concurrent.Semaphore
+import java.util.stream.IntStream
 import javax.swing.JFrame
 import javax.swing.SwingUtilities
+import kotlin.math.pow
 
-val TRAIN_TEST_IMG_PATH = "src/main/resources/dataset/train-images-idx3-ubyte"
+const val TRAIN_TEST_IMG_PATH = "src/main/resources/dataset/train-images-idx3-ubyte"
 
 data class Image(
     val width: Int,
@@ -26,8 +28,8 @@ data class Image(
         }
 
         val image = BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
-        for (h in 0..height - 1) {
-            for (w in 0..width - 1) {
+        for (h in 0 until height) {
+            for (w in 0 until width) {
                 image.setRGB(w, h, genRgb(data[h * width + w]))
             }
         }
@@ -66,8 +68,7 @@ fun showImage(image: BufferedImage, width: Int = 300, height: Int = 300) {
     sem.acquire()
 }
 
-fun main() {
-
+fun getImage(): Image {
     var img: Image
 
     FileInputStream(TRAIN_TEST_IMG_PATH).buffered().use { input ->
@@ -95,5 +96,23 @@ fun main() {
         img = Image(imageWidth, imageHeight, data)
     }
 
-    showImage(img.toBufferedImage(), 300, 300)
+    return img
+}
+
+fun main() {
+
+    val alpha = 0.7
+    var weight = 0.1
+    val input = 1
+    val goal = 14
+
+    IntStream.range(0, 400).forEach{
+        val prediction = input * weight
+        val delta =  prediction - goal
+        val error = delta.pow(2)
+        val weight_delta = delta * input
+        weight -= weight_delta * alpha
+
+        println("Error: $error - Weight: $weight")
+    }
 }
