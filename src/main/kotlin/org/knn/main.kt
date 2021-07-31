@@ -99,12 +99,25 @@ fun getImage(): Image {
     return img
 }
 
+fun List<Float>.dot(x: List<Float> ): Number {
+    if (this.size != x.size) {
+        throw Exception("Vectors are not same size")
+    }
+    this.size.let {
+        var stack = 0F
+        for (n in 0 until it) {
+           stack +=  x[n] * this[n]
+        }
+        return stack
+    }
+}
+
 fun main() {
 
     val alpha = 0.7
     var weight = 0.1
-    val input = 1
-    val goal = 14
+    val input = 1F
+    val goal = 14F
 
     IntStream.range(0, 400).forEach{
         val prediction = input * weight
