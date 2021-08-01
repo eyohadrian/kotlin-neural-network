@@ -99,7 +99,7 @@ fun getImage(): Image {
     return img
 }
 
-fun List<Float>.dot(x: List<Float> ): Number {
+fun List<Float>.dot(x: List<Float> ): Float {
     if (this.size != x.size) {
         throw Exception("Vectors are not same size")
     }
@@ -114,18 +114,21 @@ fun List<Float>.dot(x: List<Float> ): Number {
 
 fun main() {
 
-    val alpha = 0.7
-    var weight = 0.1
-    val input = 1F
-    val goal = 14F
+    val alpha = 0.01F
+    var weights = mutableListOf(0.1F, 0.1F, 0.1F)
+    val inputs = mutableListOf(5F, 3F, 1F)
+    val goal = -2F
+    var error = 1.0
+    var tries = 0
 
-    IntStream.range(0, 400).forEach{
-        val prediction = input * weight
+    while (error >= 0.0001F && tries < 400) {
+
+        val prediction = inputs.dot(weights)
         val delta =  prediction - goal
-        val error = delta.pow(2)
-        val weight_delta = delta * input
-        weight -= weight_delta * alpha
-
-        println("Error: $error - Weight: $weight")
+        error = delta.pow(2).toDouble()
+        val weightDeltas = inputs.map { x -> delta * x}
+        weights = weightDeltas.zip(weights).map { pair -> pair.second - (pair.first * alpha) }.toMutableList()
+        println("Error: $error - Weight: ${weights.joinToString(separator = ", ")} - Tries: $tries")
+        tries++
     }
 }
