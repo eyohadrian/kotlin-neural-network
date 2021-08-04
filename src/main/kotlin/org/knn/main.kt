@@ -14,6 +14,7 @@ import java.util.stream.IntStream
 import javax.swing.JFrame
 import javax.swing.SwingUtilities
 import kotlin.math.pow
+import kotlin.random.Random
 
 const val TRAIN_TEST_IMG_PATH = "src/main/resources/dataset/train-images-idx3-ubyte"
 
@@ -33,7 +34,7 @@ data class Image(
                 image.setRGB(w, h, genRgb(data[h * width + w]))
             }
         }
-        return image;
+        return image
     }
 }
 
@@ -110,6 +111,17 @@ fun List<Float>.dot(x: List<Float> ): Float {
         }
         return stack
     }
+}
+
+fun randomVector(size: Int): List<Float> = IntRange(0, size).fold(mutableListOf()){acc, _ ->
+    acc.add(Random.nextInt(-1, 1).toFloat())
+    acc
+}
+
+
+fun randomMatrix(rowSize: Int, colSize: Int): List<List<Float>> = IntRange(0, colSize).fold(mutableListOf()){acc, _ ->
+    acc.add(randomVector(rowSize))
+    acc
 }
 
 fun main() {
