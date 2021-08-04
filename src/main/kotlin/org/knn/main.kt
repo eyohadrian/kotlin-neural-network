@@ -124,8 +124,15 @@ fun randomMatrix(rowSize: Int, colSize: Int): List<List<Float>> = IntRange(0, co
     acc
 }
 
-fun main() {
+class DataNN(
+    val alpha: Float,
+    val weights: List<Float>,
+    val inputs: List<Float>,
+    val outputs: Float,
+    val tries:Int = 400
+)
 
+fun manyToOneNN() {
     val alpha = 0.01F
     var weights = mutableListOf(0.1F, 0.1F, 0.1F)
     val inputs = mutableListOf(5F, 3F, 1F)
@@ -143,4 +150,15 @@ fun main() {
         println("Error: $error - Weight: ${weights.joinToString(separator = ", ")} - Tries: $tries")
         tries++
     }
+}
+
+fun main() {
+
+    val alpha = 0.01F
+    val inputs = mutableListOf(0.1F, 0.2F, 0.4F)
+    val goals = mutableListOf(1F, 3F, -1F) //Also output
+
+    val weights_matrix = randomMatrix(inputs.size, goals.size)
+
+
 }
