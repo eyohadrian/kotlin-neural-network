@@ -113,13 +113,13 @@ fun List<Float>.dot(x: List<Float> ): Float {
     }
 }
 
-fun randomVector(size: Int): List<Float> = IntRange(0, size).fold(mutableListOf()){acc, _ ->
+fun randomVector(size: Int): List<Float> = IntRange(1, size).fold(mutableListOf()){acc, _ ->
     acc.add(Random.nextInt(-1, 1).toFloat())
     acc
 }
 
 
-fun randomMatrix(rowSize: Int, colSize: Int): List<List<Float>> = IntRange(0, colSize).fold(mutableListOf()){acc, _ ->
+fun randomMatrix(rowSize: Int, colSize: Int): List<List<Float>> = IntRange(1, colSize).fold(mutableListOf()){acc, _ ->
     acc.add(randomVector(rowSize))
     acc
 }
@@ -128,19 +128,19 @@ class DataNN(
     val alpha: Float,
     val weights: List<Float>,
     val inputs: List<Float>,
-    val outputs: Float,
+    val output: Float,
     val tries:Int = 400
 )
 
-fun manyToOneNN() {
-    val alpha = 0.01F
-    var weights = mutableListOf(0.1F, 0.1F, 0.1F)
-    val inputs = mutableListOf(5F, 3F, 1F)
-    val goal = -2F
+fun manyToOneNN(data: DataNN): List<Float> {
+    val alpha = data.alpha
+    var weights = data.weights
+    val inputs = data.inputs
+    val goal = data.output
     var error = 1.0
     var tries = 0
 
-    while (error >= 0.0001F && tries < 400) {
+    while (error >= 0.0001F && tries < data.tries) {
 
         val prediction = inputs.dot(weights)
         val delta =  prediction - goal
@@ -150,15 +150,28 @@ fun manyToOneNN() {
         println("Error: $error - Weight: ${weights.joinToString(separator = ", ")} - Tries: $tries")
         tries++
     }
+
+    return weights
 }
 
 fun main() {
 
-    val alpha = 0.01F
+    val alpha = 0.02F
     val inputs = mutableListOf(0.1F, 0.2F, 0.4F)
     val goals = mutableListOf(1F, 3F, -1F) //Also output
 
-    val weights_matrix = randomMatrix(inputs.size, goals.size)
+    val weights_matrix = randomMatrix(inputs.size, goals.size).toMutableList()
 
+    for (row in 0 until inputs.size ) {
+        println("Row index $row")
+        weights_matrix[row] = manyToOneNN(DataNN(
+            alpha = alpha,
+            weights = weights_matrix[row],
+            inputs = inputs,
+            output = goals[row]
+        ))
+    }
 
+    println("Result")
+    println(weights_matrix.map { it.dot(inputs) }.joinToString(separator = ", "))
 }
