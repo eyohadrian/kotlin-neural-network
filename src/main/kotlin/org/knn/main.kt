@@ -134,6 +134,13 @@ fun List<Float>.sumProduct(matrix: List<List<Float>>): List<Float> {
     return list
 }
 
+fun List<Float>.relu(): List<Float> = this.map {
+    when {
+        it > 0 -> it
+        else -> 0F
+    }
+}
+
 fun randomVector(size: Int): List<Float> = IntRange(1, size).fold(mutableListOf()){acc, _ ->
     acc.add(Random.nextDouble(-1.0, 1.0).toFloat())
     acc
