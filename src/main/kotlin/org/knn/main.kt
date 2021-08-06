@@ -113,8 +113,29 @@ fun List<Float>.dot(x: List<Float> ): Float {
     }
 }
 
+fun List<Float>.sumProduct(matrix: List<List<Float>>): List<Float> {
+
+    val list = mutableListOf<Float>()
+
+    matrix.forEach {
+        if (this.size != it.size) {
+            throw Exception("Size does not match")
+        }
+    }
+
+    for (col in matrix.indices) {
+        var agg = 0F
+        for (row in matrix[col].indices) {
+            agg += matrix[row][col] * this[row]
+        }
+        list.add(agg)
+    }
+
+    return list
+}
+
 fun randomVector(size: Int): List<Float> = IntRange(1, size).fold(mutableListOf()){acc, _ ->
-    acc.add(Random.nextInt(-1, 1).toFloat())
+    acc.add(Random.nextDouble(-1.0, 1.0).toFloat())
     acc
 }
 
@@ -154,10 +175,9 @@ fun manyToOneNN(data: DataNN): List<Float> {
     return weights
 }
 
-fun main() {
-
-    val alpha = 0.02F
-    val inputs = mutableListOf(0.1F, 0.2F, 0.4F)
+fun manyToManyNN() {
+    val alpha = 0.004F
+    val inputs = mutableListOf(0.1F, -0.2F, 0.4F)
     val goals = mutableListOf(1F, 3F, -1F) //Also output
 
     val weights_matrix = randomMatrix(inputs.size, goals.size).toMutableList()
@@ -174,4 +194,23 @@ fun main() {
 
     println("Result")
     println(weights_matrix.map { it.dot(inputs) }.joinToString(separator = ", "))
+}
+
+fun main() {
+
+    println(mutableListOf(2F,1F,3F).sumProduct(
+        mutableListOf(
+            mutableListOf(1F,4F,7F),
+            mutableListOf(2F,5F,8F),
+            mutableListOf(3F,6F,9F)
+        )
+    ))
+
+    manyToOneNN(
+        DataNN(
+            alpha = 0.0007F,
+            weights = randomVector(3),
+            inputs = mutableListOf(0.1F, -0.2F, 0.4F),
+            output = -1F
+    ))
 }
