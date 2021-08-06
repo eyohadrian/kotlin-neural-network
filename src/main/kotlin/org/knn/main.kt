@@ -113,25 +113,28 @@ fun List<Float>.dot(x: List<Float> ): Float {
     }
 }
 
+fun List<List<Float>>.T(): List<List<Float>> {
+    val col = this.size
+    val row = this[0].size
+    val transposedMatrix = Array(row) { FloatArray(col).toMutableList() }.toMutableList()
+    for (rowIndex in 0 until row) {
+        for (colIndex in 0 until col) {
+            transposedMatrix[rowIndex][colIndex] = this[colIndex][rowIndex]
+        }
+    }
+
+    return transposedMatrix
+}
+
 fun List<Float>.sumProduct(matrix: List<List<Float>>): List<Float> {
 
-    val list = mutableListOf<Float>()
-
-    matrix.forEach {
-        if (this.size != it.size) {
-            throw Exception("Size does not match")
-        }
+    if (this.size != matrix.size) {
+        throw Exception("Sizes does not match")
     }
 
-    for (col in matrix.indices) {
-        var agg = 0F
-        for (row in matrix[col].indices) {
-            agg += matrix[row][col] * this[row]
-        }
-        list.add(agg)
+    return matrix.T().map {
+        it.dot(this)
     }
-
-    return list
 }
 
 fun List<Float>.relu(): List<Float> = this.map {
@@ -147,7 +150,7 @@ fun randomVector(size: Int): List<Float> = IntRange(1, size).fold(mutableListOf(
 }
 
 
-fun randomMatrix(rowSize: Int, colSize: Int): List<List<Float>> = IntRange(1, colSize).fold(mutableListOf()){acc, _ ->
+fun randomMatrix(colSize: Int, rowSize: Int): List<List<Float>> = IntRange(1, colSize).fold(mutableListOf()){acc, _ ->
     acc.add(randomVector(rowSize))
     acc
 }
