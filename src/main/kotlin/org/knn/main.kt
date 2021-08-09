@@ -144,6 +144,16 @@ fun List<Float>.relu(): List<Float> = this.map {
     }
 }
 
+fun List<List<Float>>.toVector(): List<Float> {
+    if (this.size > 1) {
+        throw Exception("Matrix size greater than 1, can not convert to Vector")
+    }
+
+    return this[0]
+}
+
+fun List<Float>.toMatrix(): List<List<Float>> = mutableListOf(this)
+
 fun randomVector(size: Int): List<Float> = IntRange(1, size).fold(mutableListOf()){acc, _ ->
     acc.add(Random.nextDouble(-1.0, 1.0).toFloat())
     acc
@@ -206,21 +216,34 @@ fun manyToManyNN() {
     println(weights_matrix.map { it.dot(inputs) }.joinToString(separator = ", "))
 }
 
+
 fun main() {
 
-    println(mutableListOf(2F,1F,3F).sumProduct(
-        mutableListOf(
-            mutableListOf(1F,4F,7F),
-            mutableListOf(2F,5F,8F),
-            mutableListOf(3F,6F,9F)
-        )
-    ))
+    val output = mutableListOf(mutableListOf(1F))
 
-    manyToOneNN(
-        DataNN(
-            alpha = 0.0007F,
-            weights = randomVector(3),
-            inputs = mutableListOf(0.1F, -0.2F, 0.4F),
-            output = -1F
-    ))
+    val layer0 = mutableListOf( 1F, 0F, 1F)
+
+    val weights0to1 = mutableListOf(
+        mutableListOf(-0.16595599F,  0.44064899F, -0.99977125F, -0.39533485F),
+        mutableListOf(-0.70648822F, -0.81532281F, -0.62747958F, -0.30887855F),
+        mutableListOf(-0.20646505F,  0.07763347F, -0.16161097F,  0.370439F),
+    )
+
+    val layer1 = layer0.sumProduct(weights0to1).relu()
+
+    val weights1to2 = mutableListOf(
+        mutableListOf(-0.5910955F),
+        mutableListOf(0.75623487F),
+        mutableListOf(-0.94522481F),
+        mutableListOf( 0.34093502F),
+    )
+
+    val layer2 = layer1.sumProduct(weights1to2)
+
+    val layer2Delta = output.toVector().zip(layer2).map { it.second - it.first }
+
+    val layer1Delta = layer2Delta.sumProduct(weights1to2.T()).zip(layer1).map { if (it.second > 0 ) it.first else 0 }
+
+    println(layer1Delta)
+
 }
