@@ -10,7 +10,6 @@ import java.awt.image.BufferedImage
 import java.io.DataInputStream
 import java.io.FileInputStream
 import java.util.concurrent.Semaphore
-import java.util.stream.IntStream
 import javax.swing.JFrame
 import javax.swing.SwingUtilities
 import kotlin.math.pow
@@ -126,7 +125,10 @@ fun List<List<Float>>.T(): List<List<Float>> {
     return transposedMatrix
 }
 
-fun List<Float>.sumProduct(matrix: List<List<Float>>): List<Float> {
+fun List<Float>.ewSum(y: List<Float>): List<Float> = this.zip(y){ a, b -> a + b }
+fun List<Float>.ewSub(y: List<Float>): List<Float> = this.zip(y){ a, b -> a - b }
+
+fun List<Float>.matrixProduct(matrix: List<List<Float>>): List<Float> {
 
     if (this.size != matrix.size) {
         throw Exception("Sizes does not match")
@@ -163,6 +165,10 @@ fun randomVector(size: Int): List<Float> = IntRange(1, size).fold(mutableListOf(
 fun randomMatrix(colSize: Int, rowSize: Int): List<List<Float>> = IntRange(1, colSize).fold(mutableListOf()){acc, _ ->
     acc.add(randomVector(rowSize))
     acc
+}
+
+fun getError(lastLayer: List<Float>, expectedOutput: List<Float> ): Float {
+    return lastLayer.ewSub(expectedOutput).reduce{x, y -> x+y}.pow(2)
 }
 
 class DataNN(
@@ -229,7 +235,7 @@ fun main() {
         mutableListOf(-0.20646505F,  0.07763347F, -0.16161097F,  0.370439F),
     )
 
-    val layer1 = layer0.sumProduct(weights0to1).relu()
+    val layer1 = layer0.matrixProduct(weights0to1).relu()
 
     val weights1to2 = mutableListOf(
         mutableListOf(-0.5910955F),
@@ -238,12 +244,13 @@ fun main() {
         mutableListOf( 0.34093502F),
     )
 
-    val layer2 = layer1.sumProduct(weights1to2)
+    val layer2 = layer1.matrixProduct(weights1to2)
+    val layer2Error = getError(layer2, output[0])
 
-    val layer2Delta = output.toVector().zip(layer2).map { it.second - it.first }
+    // Get delta last layer
+    val layer2Delta = output.toVector().zip(layer2).map {it.first  - it.second }
 
-    val layer1Delta = layer2Delta.sumProduct(weights1to2.T()).zip(layer1).map { if (it.second > 0 ) it.first else 0 }
+    val layer1Delta = layer2Delta.matrixProduct(weights1to2.T()).zip(layer1).map { if (it.second > 0 ) it.first else 0 }
 
     println(layer1Delta)
-
 }
