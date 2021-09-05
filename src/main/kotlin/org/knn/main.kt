@@ -246,13 +246,11 @@ fun main() {
 
     val layer0 = mutableListOf(mutableListOf( 1F, 0F, 1F))
 
-    val weights0to1 = mutableListOf(
+    var weights0to1: List<List<Float>>  = mutableListOf(
         mutableListOf(-0.16595599F,  0.44064899F, -0.99977125F, -0.39533485F),
         mutableListOf(-0.70648822F, -0.81532281F, -0.62747958F, -0.30887855F),
         mutableListOf(-0.20646505F,  0.07763347F, -0.16161097F,  0.370439F),
     )
-
-    val layer1 = layer0.matrixProduct(weights0to1).relu()
 
     var weights1to2: List<List<Float>> = mutableListOf(
         mutableListOf(-0.5910955F),
@@ -261,15 +259,24 @@ fun main() {
         mutableListOf( 0.34093502F),
     )
 
-    val layer2 = layer1.matrixProduct(weights1to2)
-    val layer2Error = getError(layer2, output)
+    var counter = 0
+    var layer2Error = 1F
 
-    // Get delta last layer
-    val layer2Delta = output.zip(layer2).map {it.first.ewSub(it.second) }
-    val layer1Delta = layer2Delta.matrixProduct(weights1to2.T()).zip(layer1).let { listOfPairs -> listOfPairs.map { pair -> pair.first.zip(pair.second).map { if (it.second > 0) it.first else 0 } } }
+    while (counter < 61 ) {
+        val layer1 = layer0.matrixProduct(weights0to1).relu()
 
-    weights1to2 = correctWeights(layer1, layer2Delta, weights1to2)
-    println(layer1Delta)
-    println(weights1to2)
-    println(layer2Error)
+        val layer2 = layer1.matrixProduct(weights1to2)
+        layer2Error = getError(layer2, output)
+
+        // Get delta last layer
+        val layer2Delta = output.zip(layer2).map {it.first.ewSub(it.second) }
+        val layer1Delta: List<List<Float>> =
+            layer2Delta.matrixProduct(weights1to2.T()).zip(layer1).let { listOfPairs -> listOfPairs.map { pair -> pair.first.zip(pair.second).map { if (it.second > 0) it.first else 0 } } } as List<List<Float>>
+
+        weights1to2 = correctWeights(layer1, layer2Delta, weights1to2, alpha)
+        weights0to1 = correctWeights(layer0, layer1Delta, weights0to1, alpha)
+
+        println("$layer2Error - $counter")
+        counter++
+    }
 }
