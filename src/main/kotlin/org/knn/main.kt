@@ -133,7 +133,7 @@ fun List<Float>.T(): List<List<Float>> = this.fold(mutableListOf()) { acc, x ->
 
 fun List<Float>.ewSum(y: List<Float>): List<Float> = this.zip(y){ a, b -> a + b }
 fun List<Float>.ewSub(y: List<Float>): List<Float> = this.zip(y){ a, b -> a - b }
-fun List<Float>.scalarProduct(x: Int): List<Float> = this.map { it * x}
+fun List<Float>.scalarProduct(x: Float): List<Float> = this.map { it * x}
 
 fun List<Float>.matrixProduct(matrix: List<List<Float>>): List<Float> {
 
@@ -146,12 +146,18 @@ fun List<Float>.matrixProduct(matrix: List<List<Float>>): List<Float> {
     }
 }
 
+@JvmName("matrixProductFloat")
+fun List<List<Float>>.matrixProduct(matrix: List<List<Float>>): List<List<Float>> = this.map { it.matrixProduct(matrix) }
+
 fun List<Float>.relu(): List<Float> = this.map {
     when {
         it > 0 -> it
         else -> 0F
     }
 }
+
+@JvmName("reluFloat")
+fun List<List<Float>>.relu(): List<List<Float>> = this.map { it.relu() }
 
 fun List<List<Float>>.toVector(): List<Float> {
     if (this.size > 1) {
@@ -174,12 +180,12 @@ fun randomMatrix(colSize: Int, rowSize: Int): List<List<Float>> = IntRange(1, co
     acc
 }
 
-fun getError(lastLayer: List<Float>, expectedOutput: List<Float> ): Float {
-    return lastLayer.ewSub(expectedOutput).reduce{x, y -> x+y}.pow(2)
+fun getError(lastLayer: List<List<Float>>, expectedOutput: List<List<Float>> ): Float {
+    return lastLayer.zip(expectedOutput){x, y -> x.ewSub(y)}.toVector().map{it.pow(2)}.reduce{a, b -> a + b}
 }
 
 fun correctWeights(layer: List<List<Float>>, deltas: List<List<Float>>, weights: List<List<Float>>, alpha: Float = 0.2F): List<List<Float>> =
-    weights.zip(layer.T().map { it.matrixProduct(deltas) }.map { it.map { x -> x * alpha  } }).map { x -> x.first.ewSum(x.second) }
+    weights.zip(layer.T().map { it.matrixProduct(deltas) }.map { it.scalarProduct(alpha) }).map { x -> x.first.ewSum(x.second) }
 
 class DataNN(
     val alpha: Float,
@@ -238,7 +244,7 @@ fun main() {
     val alpha = 0.2F
     val output = mutableListOf(mutableListOf(1F))
 
-    val layer0 = mutableListOf( 1F, 0F, 1F)
+    val layer0 = mutableListOf(mutableListOf( 1F, 0F, 1F))
 
     val weights0to1 = mutableListOf(
         mutableListOf(-0.16595599F,  0.44064899F, -0.99977125F, -0.39533485F),
@@ -256,13 +262,14 @@ fun main() {
     )
 
     val layer2 = layer1.matrixProduct(weights1to2)
-    val layer2Error = getError(layer2, output[0])
+    val layer2Error = getError(layer2, output)
 
     // Get delta last layer
-    val layer2Delta = output.map {col -> col.zip(layer2).map {it.first  - it.second } }
+    val layer2Delta = output.zip(layer2).map {it.first.ewSub(it.second) }
+    val layer1Delta = layer2Delta.matrixProduct(weights1to2.T()).zip(layer1).let { listOfPairs -> listOfPairs.map { pair -> pair.first.zip(pair.second).map { if (it.second > 0) it.first else 0 } } }
 
-    val layer1Delta = layer2Delta.map{ col -> col.matrixProduct(weights1to2.T()).zip(layer1).map { if (it.second > 0 ) it.first else 0 }}
-
-    weights1to2 = correctWeights(mutableListOf(layer1), layer2Delta, weights1to2)
+    weights1to2 = correctWeights(layer1, layer2Delta, weights1to2)
     println(layer1Delta)
+    println(weights1to2)
+    println(layer2Error)
 }
