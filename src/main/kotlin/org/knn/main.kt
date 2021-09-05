@@ -125,8 +125,15 @@ fun List<List<Float>>.T(): List<List<Float>> {
     return transposedMatrix
 }
 
+@JvmName("TFloat")
+fun List<Float>.T(): List<List<Float>> = this.fold(mutableListOf()) { acc, x ->
+    acc.add(mutableListOf(x))
+    acc
+}
+
 fun List<Float>.ewSum(y: List<Float>): List<Float> = this.zip(y){ a, b -> a + b }
 fun List<Float>.ewSub(y: List<Float>): List<Float> = this.zip(y){ a, b -> a - b }
+fun List<Float>.scalarProduct(x: Int): List<Float> = this.map { it * x}
 
 fun List<Float>.matrixProduct(matrix: List<List<Float>>): List<Float> {
 
@@ -170,6 +177,9 @@ fun randomMatrix(colSize: Int, rowSize: Int): List<List<Float>> = IntRange(1, co
 fun getError(lastLayer: List<Float>, expectedOutput: List<Float> ): Float {
     return lastLayer.ewSub(expectedOutput).reduce{x, y -> x+y}.pow(2)
 }
+
+fun correctWeights(layer: List<List<Float>>, deltas: List<List<Float>>, weights: List<List<Float>>, alpha: Float = 0.2F): List<List<Float>> =
+    weights.zip(layer.T().map { it.matrixProduct(deltas) }.map { it.map { x -> x * alpha  } }).map { x -> x.first.ewSum(x.second) }
 
 class DataNN(
     val alpha: Float,
@@ -225,6 +235,7 @@ fun manyToManyNN() {
 
 fun main() {
 
+    val alpha = 0.2F
     val output = mutableListOf(mutableListOf(1F))
 
     val layer0 = mutableListOf( 1F, 0F, 1F)
@@ -237,7 +248,7 @@ fun main() {
 
     val layer1 = layer0.matrixProduct(weights0to1).relu()
 
-    val weights1to2 = mutableListOf(
+    var weights1to2: List<List<Float>> = mutableListOf(
         mutableListOf(-0.5910955F),
         mutableListOf(0.75623487F),
         mutableListOf(-0.94522481F),
@@ -248,9 +259,10 @@ fun main() {
     val layer2Error = getError(layer2, output[0])
 
     // Get delta last layer
-    val layer2Delta = output.toVector().zip(layer2).map {it.first  - it.second }
+    val layer2Delta = output.map {col -> col.zip(layer2).map {it.first  - it.second } }
 
-    val layer1Delta = layer2Delta.matrixProduct(weights1to2.T()).zip(layer1).map { if (it.second > 0 ) it.first else 0 }
+    val layer1Delta = layer2Delta.map{ col -> col.matrixProduct(weights1to2.T()).zip(layer1).map { if (it.second > 0 ) it.first else 0 }}
 
+    weights1to2 = correctWeights(mutableListOf(layer1), layer2Delta, weights1to2)
     println(layer1Delta)
 }
