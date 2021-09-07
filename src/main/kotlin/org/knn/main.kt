@@ -16,6 +16,7 @@ import kotlin.math.pow
 import kotlin.random.Random
 
 const val TRAIN_TEST_IMG_PATH = "src/main/resources/dataset/train-images-idx3-ubyte"
+const val ALPHA = 0.2F
 
 data class Image(
     val width: Int,
@@ -184,8 +185,8 @@ fun getError(lastLayer: List<List<Float>>, expectedOutput: List<List<Float>> ): 
     return lastLayer.zip(expectedOutput){x, y -> x.ewSub(y)}.toVector().map{it.pow(2)}.reduce{a, b -> a + b}
 }
 
-fun correctWeights(layer: List<List<Float>>, deltas: List<List<Float>>, weights: List<List<Float>>, alpha: Float = 0.2F): List<List<Float>> =
-    weights.zip(layer.T().map { it.matrixProduct(deltas) }.map { it.scalarProduct(alpha) }).map { x -> x.first.ewSum(x.second) }
+fun correctWeights(layer: List<List<Float>>, deltas: List<List<Float>>, weights: List<List<Float>>): List<List<Float>> =
+    weights.zip(layer.T().map { it.matrixProduct(deltas) }.map { it.scalarProduct(ALPHA) }).map { x -> x.first.ewSum(x.second) }
 
 class DataNN(
     val alpha: Float,
@@ -238,10 +239,50 @@ fun manyToManyNN() {
     println(weights_matrix.map { it.dot(inputs) }.joinToString(separator = ", "))
 }
 
+//data class NeuralNetwork(
+//    val inputLayer: InputLayer,
+//    val hiddenLayers: List<HiddenLayer>,
+//    val outputLayer: OutputLayer
+//)
+
+abstract class Layer(var values: List<List<Float>>, var weights: List<List<Float>>) {
+
+    abstract fun forward(): List<List<Float>>
+
+}
+
+class InputLayer(values: List<List<Float>>, weights: List<List<Float>>): Layer(values, weights) {
+
+    override fun forward(): List<List<Float>> = values.matrixProduct(weights).relu()
+
+    fun back(deltas: List<List<Float>>) {
+        this.weights = weights.zip(values.T().map { it.matrixProduct(deltas) }.map { it.scalarProduct(ALPHA) })
+            .map { x -> x.first.ewSum(x.second) }
+    }
+}
+
+class HiddenLayer(values: List<List<Float>>, weights: List<List<Float>>): Layer(values, weights) {
+    override fun forward(): List<List<Float>> = values.matrixProduct(weights.relu())
+}
+
+class OutputLayer(values: List<List<Float>>, weights: List<List<Float>>): Layer(values, weights) {
+    override fun forward(): List<List<Float>> {
+        TODO("Not yet implemented")
+    }
+
+    fun back(deltas: List<List<Float>>) {
+        this.weights = weights.zip(values.T().map { it.matrixProduct(deltas) }.map { it.scalarProduct(ALPHA) })
+            .map { x -> x.first.ewSum(x.second) }
+    }
+}
+
+//data class Connexion(val from: Neuron, val to: Neuron, val weight: Float)
+
+//data class Neuron(val value: Float, val connexions: List<Connexion>)
 
 fun main() {
 
-    val alpha = 0.2F
+
     val output = mutableListOf(mutableListOf(1F))
 
     val layer0 = mutableListOf(mutableListOf( 1F, 0F, 1F))
@@ -259,22 +300,26 @@ fun main() {
         mutableListOf( 0.34093502F),
     )
 
+    val inputLayer = InputLayer(layer0, weights0to1)
+    val hiddenLayer = HiddenLayer(emptyList(), weights1to2)
+
     var counter = 0
     var layer2Error = 1F
 
     while (counter < 61 ) {
-        val layer1 = layer0.matrixProduct(weights0to1).relu()
+        hiddenLayer.values = inputLayer.forward()
 
-        val layer2 = layer1.matrixProduct(weights1to2)
+        val layer2 = hiddenLayer.forward()
         layer2Error = getError(layer2, output)
 
         // Get delta last layer
         val layer2Delta = output.zip(layer2).map {it.first.ewSub(it.second) }
         val layer1Delta: List<List<Float>> =
-            layer2Delta.matrixProduct(weights1to2.T()).zip(layer1).let { listOfPairs -> listOfPairs.map { pair -> pair.first.zip(pair.second).map { if (it.second > 0) it.first else 0 } } } as List<List<Float>>
+            layer2Delta.matrixProduct(hiddenLayer.weights.T()).zip(hiddenLayer.values).let { listOfPairs -> listOfPairs.map { pair -> pair.first.zip(pair.second).map { if (it.second > 0) it.first else 0 } } } as List<List<Float>>
 
-        weights1to2 = correctWeights(layer1, layer2Delta, weights1to2, alpha)
-        weights0to1 = correctWeights(layer0, layer1Delta, weights0to1, alpha)
+        hiddenLayer.weights = correctWeights(hiddenLayer.values, layer2Delta, hiddenLayer.weights)
+
+        inputLayer.back(layer1Delta)
 
         println("$layer2Error - $counter")
         counter++
