@@ -269,18 +269,18 @@ class HiddenLayer(values: List<List<Float>>, weights: List<List<Float>>): Layer(
     }
 }
 
-class OutputLayer(values: List<List<Float>>, weights: List<List<Float>>, var presumedValue: List<List<Float>>): Layer(values, weights) {
+class OutputLayer(values: List<List<Float>>, weights: List<List<Float>>, var expectedValues: List<List<Float>>): Layer(values, weights) {
     override fun forward(): List<List<Float>> {
         TODO("Not yet implemented")
     }
 
     fun back(deltas: List<List<Float>>) {
-        this.weights = weights.zip(values.T().map { it.matrixProduct(deltas) }.map { it.scalarProduct(ALPHA) })
+        this.weights = weights.zip(expectedValues.T().map { it.matrixProduct(deltas) }.map { it.scalarProduct(ALPHA) })
             .map { x -> x.first.ewSum(x.second) }
     }
 
     fun getError(): Float {
-        return presumedValue.zip(values){x, y -> x.ewSub(y)}.toVector().map{it.pow(2)}.reduce{a, b -> a + b}
+        return values.zip(expectedValues){x, y -> x.ewSub(y)}.toVector().map{it.pow(2)}.reduce{a, b -> a + b}
     }
 }
 
@@ -310,7 +310,7 @@ fun main() {
 
     val inputLayer = InputLayer(layer0, weights0to1)
     val hiddenLayer = HiddenLayer(emptyList(), weights1to2)
-    val outputLayer = OutputLayer(output, emptyList(), emptyList())
+    val outputLayer = OutputLayer(emptyList(), emptyList(), output)
 
     var counter = 0
     var layer2Error = 1F
@@ -318,11 +318,11 @@ fun main() {
     while (counter < 61 ) {
         hiddenLayer.values = inputLayer.forward()
 
-        outputLayer.presumedValue = hiddenLayer.forward()
+        outputLayer.values = hiddenLayer.forward()
         layer2Error = outputLayer.getError()
 
         // Get delta last layer
-        val layer2Delta = output.zip(outputLayer.presumedValue).map {it.first.ewSub(it.second) }
+        val layer2Delta = output.zip(outputLayer.values).map {it.first.ewSub(it.second) }
         val layer1Delta: List<List<Float>> =
             layer2Delta.matrixProduct(hiddenLayer.weights.T()).zip(hiddenLayer.values).let { listOfPairs -> listOfPairs.map { pair -> pair.first.zip(pair.second).map { if (it.second > 0) it.first else 0 } } } as List<List<Float>>
 
