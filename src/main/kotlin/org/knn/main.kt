@@ -248,35 +248,37 @@ fun manyToManyNN() {
 abstract class Layer(var values: List<List<Float>>, var weights: List<List<Float>>) {
 
     abstract fun forward(): List<List<Float>>
-
+    abstract fun back(deltas: List<List<Float>> = emptyList()):List<List<Float>>
 }
 
 class InputLayer(values: List<List<Float>>, weights: List<List<Float>>): Layer(values, weights) {
 
     override fun forward(): List<List<Float>> = values.matrixProduct(weights).relu()
 
-    fun back(deltas: List<List<Float>>) {
+    override fun back(deltas: List<List<Float>>): List<List<Float>> {
         this.weights = weights.zip(values.T().map { it.matrixProduct(deltas) }.map { it.scalarProduct(ALPHA) })
             .map { x -> x.first.ewSum(x.second) }
+        return emptyList()
     }
 }
 
 class HiddenLayer(values: List<List<Float>>, weights: List<List<Float>>): Layer(values, weights) {
     override fun forward(): List<List<Float>> = values.matrixProduct(weights.relu())
-    fun back(deltas: List<List<Float>>) {
+    override fun back(deltas: List<List<Float>>): List<List<Float>> {
+        val newDelta = deltas.matrixProduct(weights.T()).zip(values).let { listOfPairs -> listOfPairs.map { pair -> pair.first.zip(pair.second).map { if (it.second > 0) it.first else 0 } } } as List<List<Float>>
         this.weights = weights.zip(values.T().map { it.matrixProduct(deltas) }.map { it.scalarProduct(ALPHA) })
             .map { x -> x.first.ewSum(x.second) }
+        return newDelta
     }
 }
 
 class OutputLayer(values: List<List<Float>>, weights: List<List<Float>>, var expectedValues: List<List<Float>>): Layer(values, weights) {
     override fun forward(): List<List<Float>> {
-        TODO("Not yet implemented")
+        return emptyList()
     }
 
-    fun back(deltas: List<List<Float>>) {
-        this.weights = weights.zip(expectedValues.T().map { it.matrixProduct(deltas) }.map { it.scalarProduct(ALPHA) })
-            .map { x -> x.first.ewSum(x.second) }
+    override fun back(deltas: List<List<Float>>): List<List<Float>> {
+        return expectedValues.zip(values).map {it.first.ewSub(it.second) }
     }
 
     fun getError(): Float {
@@ -315,20 +317,21 @@ fun main() {
     var counter = 0
     var layer2Error = 1F
 
+    val layers = listOf(inputLayer, hiddenLayer, outputLayer)
     while (counter < 61 ) {
-        hiddenLayer.values = inputLayer.forward()
+//        hiddenLayer.values = inputLayer.forward()
 
-        outputLayer.values = hiddenLayer.forward()
+ //       outputLayer.values = hiddenLayer.forward()
+
+        layers.reduce{acc, layer ->
+            layer.values = acc.forward()
+            layer
+        }
+
         layer2Error = outputLayer.getError()
 
         // Get delta last layer
-        val layer2Delta = output.zip(outputLayer.values).map {it.first.ewSub(it.second) }
-        val layer1Delta: List<List<Float>> =
-            layer2Delta.matrixProduct(hiddenLayer.weights.T()).zip(hiddenLayer.values).let { listOfPairs -> listOfPairs.map { pair -> pair.first.zip(pair.second).map { if (it.second > 0) it.first else 0 } } } as List<List<Float>>
-
-        hiddenLayer.back(layer2Delta)
-
-        inputLayer.back(layer1Delta)
+        layers.foldRight(emptyList<List<Float>>()){ acc, layer -> acc.back(layer)}
 
         println("$layer2Error - $counter")
         counter++
