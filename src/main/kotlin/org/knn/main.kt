@@ -258,13 +258,13 @@ fun manyToManyNN() {
 
 abstract class Layer(var values: List<Float>, var weights: List<List<Float>>) {
 
-    abstract fun forward(): List<List<Float>>
+    abstract fun forward(): List<Float>
     abstract fun back(deltas: List<List<Float>> = emptyList()):List<List<Float>>
 }
 
 class InputLayer(values: List<Float>, weights: List<List<Float>>): Layer(values, weights) {
 
-    override fun forward(): List<List<Float>> = values.toMatrix().matrixProduct(weights).relu()
+    override fun forward(): List<Float> = values.matrixProduct(weights).relu()
 
     override fun back(deltas: List<List<Float>>): List<List<Float>> {
         this.weights = weights.zip(values.toMatrix().T().map { it.matrixProduct(deltas) }.map { it.scalarProduct(ALPHA) })
@@ -274,7 +274,7 @@ class InputLayer(values: List<Float>, weights: List<List<Float>>): Layer(values,
 }
 
 class HiddenLayer(values: List<Float>, weights: List<List<Float>>): Layer(values, weights) {
-    override fun forward(): List<List<Float>> = values.toMatrix().matrixProduct(weights.relu())
+    override fun forward(): List<Float> = values.matrixProduct(weights).relu()
     override fun back(deltas: List<List<Float>>): List<List<Float>> {
         val newDelta = deltas.matrixProduct(weights.T()).zip(values.toMatrix()).let { listOfPairs -> listOfPairs.map { pair -> pair.first.zip(pair.second).map { if (it.second > 0) it.first else 0 } } } as List<List<Float>>
         this.weights = weights.zip(values.toMatrix().T().map { it.matrixProduct(deltas) }.map { it.scalarProduct(ALPHA) })
@@ -284,7 +284,7 @@ class HiddenLayer(values: List<Float>, weights: List<List<Float>>): Layer(values
 }
 
 class OutputLayer(values: List<Float>, weights: List<List<Float>>, var expectedValues: List<Float>): Layer(values, weights) {
-    override fun forward(): List<List<Float>> {
+    override fun forward(): List<Float> {
         return emptyList()
     }
 
@@ -348,7 +348,7 @@ fun NN() {
             outputLayer.expectedValues = output[i]
 
             layers.reduce{acc, layer ->
-                layer.values = acc.forward().toVector()
+                layer.values = acc.forward()
                 layer
             }
 
@@ -365,7 +365,7 @@ fun NN() {
     inputLayer.values = mutableListOf( 1F, 1F, 0F)
 
     layers.reduce{acc, layer ->
-        layer.values = acc.forward().toVector()
+        layer.values = acc.forward()
         layer
     }
 
