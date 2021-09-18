@@ -289,11 +289,11 @@ class OutputLayer(values: List<List<Float>>, weights: List<List<Float>>, var exp
     }
 
     override fun back(deltas: List<List<Float>>): List<List<Float>> {
-        return expectedValues.toMatrix().zip(values).map {it.first.ewSub(it.second) }
+        return expectedValues.ewSub(values.toVector()).toMatrix()
     }
 
     fun getError(): Float {
-        return values.zip(expectedValues.toMatrix()){x, y -> x.ewSub(y)}.toVector().map{it.pow(2)}.reduce{a, b -> a + b}
+        return values.toVector().ewSub(expectedValues).map{it.pow(2)}.reduce{a, b -> a + b}
     }
 }
 
@@ -304,14 +304,20 @@ class OutputLayer(values: List<List<Float>>, weights: List<List<Float>>, var exp
 fun NN() {
 
 
-    val output = mutableListOf(1F, 1F, 0F, 0F, 1F).T()
+    //val output = mutableListOf(1F, 1F, 0F, 0F, 1F).T()
+
+    val output = mutableListOf(1F).T()
+
+//    val layer0 = mutableListOf(
+//        mutableListOf( 1F, 0F, 1F),
+//        mutableListOf( 0F, 1F, 1F),
+//        mutableListOf( 0F, 0F, 1F),
+//        mutableListOf( 1F, 1F, 1F),
+//        mutableListOf( 1F, 1F, 0F)
+//    )
 
     val layer0 = mutableListOf(
-        mutableListOf( 1F, 0F, 1F),
-        mutableListOf( 0F, 1F, 1F),
-        mutableListOf( 0F, 0F, 1F),
-        mutableListOf( 1F, 1F, 1F),
-        mutableListOf( 1F, 1F, 0F)
+        mutableListOf( 1F, 0F, 1F)
     )
 
     var weights0to1: List<List<Float>>  = mutableListOf(
@@ -348,7 +354,6 @@ fun NN() {
 
             layer2Error = outputLayer.getError()
 
-            // Get delta last layer
             layers.foldRight(emptyList<List<Float>>()){ acc, layer -> acc.back(layer)}
 
         }
