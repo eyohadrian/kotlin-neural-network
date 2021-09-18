@@ -1,11 +1,6 @@
 package org.knn
 
-import java.awt.Canvas
-import java.awt.Color
-import java.awt.Dimension
-import java.awt.Graphics
-import java.awt.event.WindowAdapter
-import java.awt.event.WindowEvent
+import java.awt.*
 import java.awt.image.BufferedImage
 import java.io.DataInputStream
 import java.io.FileInputStream
@@ -15,10 +10,21 @@ import javax.swing.SwingUtilities
 import kotlin.math.pow
 import kotlin.random.Random
 
+import javax.swing.JButton
+
+import javax.swing.JPanel
+
+import java.awt.event.*
+
+import javax.swing.JComponent
+
+
+
 const val TRAIN_TEST_IMG_PATH = "src/main/resources/dataset/train-images-idx3-ubyte"
+const val TRAIN_TEST_LABEL_PATH = "src/main/resources/dataset/train-labels-idx1-ubyte"
 const val ALPHA = 0.2F
 
-data class Image(
+data class ImageNN(
     val width: Int,
     val height: Int,
     val data: IntArray
@@ -69,8 +75,8 @@ fun showImage(image: BufferedImage, width: Int = 300, height: Int = 300) {
     sem.acquire()
 }
 
-fun getImage(): Image {
-    var img: Image
+fun getImage(): ImageNN {
+    var img: ImageNN
 
     FileInputStream(TRAIN_TEST_IMG_PATH).buffered().use { input ->
         val dis = DataInputStream(input)
@@ -94,10 +100,28 @@ fun getImage(): Image {
             }
         }
 
-        img = Image(imageWidth, imageHeight, data)
+        img = ImageNN(imageWidth, imageHeight, data)
     }
 
     return img
+}
+
+fun getLabels(path: String): List<Byte> {
+    FileInputStream(path).buffered().use { inputStream ->
+        val dis = DataInputStream(inputStream)
+        dis.readInt().run {
+            if (this != 0x00000801) {
+                throw Exception("Magic number expected for file $path")
+            }
+        }
+        val labelNumber = dis.readInt()
+
+        return ArrayList<Byte>().apply {
+            for (i in 1..labelNumber) {
+                add(dis.readUnsignedByte().toByte())
+            }
+        }
+    }
 }
 
 fun List<Float>.dot(x: List<Float> ): Float {
@@ -181,13 +205,6 @@ fun randomMatrix(colSize: Int, rowSize: Int): List<List<Float>> = IntRange(1, co
     acc
 }
 
-fun getError(lastLayer: List<List<Float>>, expectedOutput: List<List<Float>> ): Float {
-    return lastLayer.zip(expectedOutput){x, y -> x.ewSub(y)}.toVector().map{it.pow(2)}.reduce{a, b -> a + b}
-}
-
-fun correctWeights(layer: List<List<Float>>, deltas: List<List<Float>>, weights: List<List<Float>>): List<List<Float>> =
-    weights.zip(layer.T().map { it.matrixProduct(deltas) }.map { it.scalarProduct(ALPHA) }).map { x -> x.first.ewSum(x.second) }
-
 class DataNN(
     val alpha: Float,
     val weights: List<Float>,
@@ -239,12 +256,6 @@ fun manyToManyNN() {
     println(weights_matrix.map { it.dot(inputs) }.joinToString(separator = ", "))
 }
 
-//data class NeuralNetwork(
-//    val inputLayer: InputLayer,
-//    val hiddenLayers: List<HiddenLayer>,
-//    val outputLayer: OutputLayer
-//)
-
 abstract class Layer(var values: List<List<Float>>, var weights: List<List<Float>>) {
 
     abstract fun forward(): List<List<Float>>
@@ -272,17 +283,17 @@ class HiddenLayer(values: List<List<Float>>, weights: List<List<Float>>): Layer(
     }
 }
 
-class OutputLayer(values: List<List<Float>>, weights: List<List<Float>>, var expectedValues: List<List<Float>>): Layer(values, weights) {
+class OutputLayer(values: List<List<Float>>, weights: List<List<Float>>, var expectedValues: List<Float>): Layer(values, weights) {
     override fun forward(): List<List<Float>> {
         return emptyList()
     }
 
     override fun back(deltas: List<List<Float>>): List<List<Float>> {
-        return expectedValues.zip(values).map {it.first.ewSub(it.second) }
+        return expectedValues.toMatrix().zip(values).map {it.first.ewSub(it.second) }
     }
 
     fun getError(): Float {
-        return values.zip(expectedValues){x, y -> x.ewSub(y)}.toVector().map{it.pow(2)}.reduce{a, b -> a + b}
+        return values.zip(expectedValues.toMatrix()){x, y -> x.ewSub(y)}.toVector().map{it.pow(2)}.reduce{a, b -> a + b}
     }
 }
 
@@ -290,12 +301,18 @@ class OutputLayer(values: List<List<Float>>, weights: List<List<Float>>, var exp
 
 //data class Neuron(val value: Float, val connexions: List<Connexion>)
 
-fun main() {
+fun NN() {
 
 
-    val output = mutableListOf(mutableListOf(1F))
+    val output = mutableListOf(1F, 1F, 0F, 0F, 1F).T()
 
-    val layer0 = mutableListOf(mutableListOf( 1F, 0F, 1F))
+    val layer0 = mutableListOf(
+        mutableListOf( 1F, 0F, 1F),
+        mutableListOf( 0F, 1F, 1F),
+        mutableListOf( 0F, 0F, 1F),
+        mutableListOf( 1F, 1F, 1F),
+        mutableListOf( 1F, 1F, 0F)
+    )
 
     var weights0to1: List<List<Float>>  = mutableListOf(
         mutableListOf(-0.16595599F,  0.44064899F, -0.99977125F, -0.39533485F),
@@ -310,30 +327,46 @@ fun main() {
         mutableListOf( 0.34093502F),
     )
 
-    val inputLayer = InputLayer(layer0, weights0to1)
+    val inputLayer = InputLayer(emptyList(), weights0to1)
     val hiddenLayer = HiddenLayer(emptyList(), weights1to2)
-    val outputLayer = OutputLayer(emptyList(), emptyList(), output)
+    val outputLayer = OutputLayer(emptyList(), emptyList(), emptyList())
 
     var counter = 0
     var layer2Error = 1F
 
     val layers = listOf(inputLayer, hiddenLayer, outputLayer)
     while (counter < 61 ) {
-//        hiddenLayer.values = inputLayer.forward()
 
- //       outputLayer.values = hiddenLayer.forward()
+        for (i in 0 until layer0.size) {
+            inputLayer.values = layer0[i].toMatrix()
+            outputLayer.expectedValues = output[i]
 
-        layers.reduce{acc, layer ->
-            layer.values = acc.forward()
-            layer
+            layers.reduce{acc, layer ->
+                layer.values = acc.forward()
+                layer
+            }
+
+            layer2Error = outputLayer.getError()
+
+            // Get delta last layer
+            layers.foldRight(emptyList<List<Float>>()){ acc, layer -> acc.back(layer)}
+
         }
-
-        layer2Error = outputLayer.getError()
-
-        // Get delta last layer
-        layers.foldRight(emptyList<List<Float>>()){ acc, layer -> acc.back(layer)}
 
         println("$layer2Error - $counter")
         counter++
     }
+
+    inputLayer.values = mutableListOf(mutableListOf( 1F, 1F, 0F))
+
+    layers.reduce{acc, layer ->
+        layer.values = acc.forward()
+        layer
+    }
+
+    println(outputLayer.values)
+}
+
+fun main() {
+   NN()
 }
