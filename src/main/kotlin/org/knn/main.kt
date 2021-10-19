@@ -181,9 +181,6 @@ fun List<Float>.relu(): List<Float> = this.map {
     }
 }
 
-@JvmName("reluFloat")
-fun List<List<Float>>.relu(): List<List<Float>> = this.map { it.relu() }
-
 fun List<List<Float>>.toVector(): List<Float> {
     if (this.size > 1) {
         throw Exception("Matrix size greater than 1, can not convert to Vector")
@@ -256,62 +253,54 @@ fun manyToManyNN() {
     println(weights_matrix.map { it.dot(inputs) }.joinToString(separator = ", "))
 }
 
-abstract class Layer(var values: List<List<Float>>, var weights: List<List<Float>>) {
+abstract class Layer(var values: List<Float>, var weights: List<List<Float>>) {
 
-    abstract fun forward(): List<List<Float>>
+    abstract fun forward(): List<Float>
     abstract fun back(deltas: List<List<Float>> = emptyList()):List<List<Float>>
 }
 
-class InputLayer(values: List<List<Float>>, weights: List<List<Float>>): Layer(values, weights) {
+class InputLayer(values: List<Float> = emptyList(), weights: List<List<Float>>): Layer(values, weights) {
 
-    override fun forward(): List<List<Float>> = values.matrixProduct(weights).relu()
+    override fun forward(): List<Float> = values.matrixProduct(weights).relu()
 
     override fun back(deltas: List<List<Float>>): List<List<Float>> {
-        this.weights = weights.zip(values.T().map { it.matrixProduct(deltas) }.map { it.scalarProduct(ALPHA) })
+        this.weights = weights.zip(values.toMatrix().T().map { it.matrixProduct(deltas) }.map { it.scalarProduct(ALPHA) })
             .map { x -> x.first.ewSum(x.second) }
         return emptyList()
     }
 }
 
-class HiddenLayer(values: List<List<Float>>, weights: List<List<Float>>): Layer(values, weights) {
-    override fun forward(): List<List<Float>> = values.matrixProduct(weights.relu())
+class HiddenLayer(values: List<Float> = emptyList(), weights: List<List<Float>>): Layer(values, weights) {
+    override fun forward(): List<Float> = values.matrixProduct(weights).relu()
     override fun back(deltas: List<List<Float>>): List<List<Float>> {
-        val newDelta = deltas.matrixProduct(weights.T()).zip(values).let { listOfPairs -> listOfPairs.map { pair -> pair.first.zip(pair.second).map { if (it.second > 0) it.first else 0 } } } as List<List<Float>>
-        this.weights = weights.zip(values.T().map { it.matrixProduct(deltas) }.map { it.scalarProduct(ALPHA) })
+        val newDelta = deltas.matrixProduct(weights.T()).zip(values.toMatrix()).let { listOfPairs -> listOfPairs.map { pair -> pair.first.zip(pair.second).map { if (it.second > 0) it.first else 0 } } } as List<List<Float>>
+        this.weights = weights.zip(values.toMatrix().T().map { it.matrixProduct(deltas) }.map { it.scalarProduct(ALPHA) })
             .map { x -> x.first.ewSum(x.second) }
         return newDelta
     }
 }
 
-class OutputLayer(values: List<List<Float>>, weights: List<List<Float>>, var expectedValues: List<Float>): Layer(values, weights) {
-    override fun forward(): List<List<Float>> {
+class OutputLayer(values: List<Float> = emptyList(), weights: List<List<Float>> = emptyList(), var expectedValues: List<Float> = emptyList()): Layer(values, weights) {
+    override fun forward(): List<Float> {
         return emptyList()
     }
 
     override fun back(deltas: List<List<Float>>): List<List<Float>> {
-        return expectedValues.toMatrix().zip(values).map {it.first.ewSub(it.second) }
+        return expectedValues.ewSub(values).toMatrix()
     }
 
     fun getError(): Float {
-        return values.zip(expectedValues.toMatrix()){x, y -> x.ewSub(y)}.toVector().map{it.pow(2)}.reduce{a, b -> a + b}
+        return values.ewSub(expectedValues).map{it.pow(2)}.reduce{a, b -> a + b}
     }
 }
-
-//data class Connexion(val from: Neuron, val to: Neuron, val weight: Float)
-
-//data class Neuron(val value: Float, val connexions: List<Connexion>)
 
 fun NN() {
 
 
-    val output = mutableListOf(1F, 1F, 0F, 0F, 1F).T()
+    val output = mutableListOf(1F).T()
 
     val layer0 = mutableListOf(
-        mutableListOf( 1F, 0F, 1F),
-        mutableListOf( 0F, 1F, 1F),
-        mutableListOf( 0F, 0F, 1F),
-        mutableListOf( 1F, 1F, 1F),
-        mutableListOf( 1F, 1F, 0F)
+        mutableListOf( 1F, 0F, 1F)
     )
 
     var weights0to1: List<List<Float>>  = mutableListOf(
@@ -327,9 +316,9 @@ fun NN() {
         mutableListOf( 0.34093502F),
     )
 
-    val inputLayer = InputLayer(emptyList(), weights0to1)
-    val hiddenLayer = HiddenLayer(emptyList(), weights1to2)
-    val outputLayer = OutputLayer(emptyList(), emptyList(), emptyList())
+    val inputLayer = InputLayer(weights = weights0to1)
+    val hiddenLayer = HiddenLayer(weights = weights1to2)
+    val outputLayer = OutputLayer()
 
     var counter = 0
     var layer2Error = 1F
@@ -338,7 +327,7 @@ fun NN() {
     while (counter < 61 ) {
 
         for (i in 0 until layer0.size) {
-            inputLayer.values = layer0[i].toMatrix()
+            inputLayer.values = layer0[i]
             outputLayer.expectedValues = output[i]
 
             layers.reduce{acc, layer ->
@@ -348,7 +337,6 @@ fun NN() {
 
             layer2Error = outputLayer.getError()
 
-            // Get delta last layer
             layers.foldRight(emptyList<List<Float>>()){ acc, layer -> acc.back(layer)}
 
         }
@@ -357,7 +345,7 @@ fun NN() {
         counter++
     }
 
-    inputLayer.values = mutableListOf(mutableListOf( 1F, 1F, 0F))
+    inputLayer.values = mutableListOf( 1F, 1F, 0F)
 
     layers.reduce{acc, layer ->
         layer.values = acc.forward()
