@@ -10,15 +10,7 @@ import javax.swing.SwingUtilities
 import kotlin.math.pow
 import kotlin.random.Random
 
-import javax.swing.JButton
-
-import javax.swing.JPanel
-
 import java.awt.event.*
-
-import javax.swing.JComponent
-
-
 
 const val TRAIN_TEST_IMG_PATH = "src/main/resources/dataset/train-images-idx3-ubyte"
 const val TRAIN_TEST_LABEL_PATH = "src/main/resources/dataset/train-labels-idx1-ubyte"
@@ -27,7 +19,7 @@ const val ALPHA = 0.2F
 data class ImageNN(
     val width: Int,
     val height: Int,
-    val data: IntArray
+    val buffer: IntArray
 ) {
     fun toBufferedImage(): BufferedImage {
         fun genRgb(grayScale: Int): Int = (255 - grayScale).let {
@@ -37,7 +29,7 @@ data class ImageNN(
         val image = BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
         for (h in 0 until height) {
             for (w in 0 until width) {
-                image.setRGB(w, h, genRgb(data[h * width + w]))
+                image.setRGB(w, h, genRgb(buffer[h * width + w]))
             }
         }
         return image
@@ -75,10 +67,10 @@ fun showImage(image: BufferedImage, width: Int = 300, height: Int = 300) {
     sem.acquire()
 }
 
-fun getImage(): ImageNN {
-    var img: ImageNN
+fun loadImages(path: String): List<ImageNN> {
+    val imgs: MutableList<ImageNN> = mutableListOf()
 
-    FileInputStream(TRAIN_TEST_IMG_PATH).buffered().use { input ->
+    FileInputStream(path).buffered().use { input ->
         val dis = DataInputStream(input)
         dis.readInt().run {
             if (this != 0x00000803) {
@@ -93,20 +85,22 @@ fun getImage(): ImageNN {
 
         print("$imageNumber $imageHeight $imageWidth")
 
-        val data = IntArray(imageWidth * imageHeight)
-        for (h in 0 until imageHeight) {
-            for (w in 0 until imageWidth) {
-                data[h * imageWidth + w] = dis.readUnsignedByte()
+        for (i in 0 until imageNumber) {
+            val data = IntArray(imageWidth * imageHeight)
+            for (h in 0 until imageHeight) {
+                for (w in 0 until imageWidth) {
+                    data[h * imageWidth + w] = dis.readUnsignedByte()
+                }
             }
-        }
 
-        img = ImageNN(imageWidth, imageHeight, data)
+            imgs.add(ImageNN(imageWidth, imageHeight, data))
+        }
     }
 
-    return img
+    return imgs
 }
 
-fun getLabels(path: String): List<Byte> {
+fun loadLabels(path: String): List<Byte> {
     FileInputStream(path).buffered().use { inputStream ->
         val dis = DataInputStream(inputStream)
         dis.readInt().run {
@@ -356,5 +350,6 @@ fun NN() {
 }
 
 fun main() {
-   NN()
+    val imgs = loadImages(TRAIN_TEST_IMG_PATH).map { img -> img.buffer }
+    val labels = loadLabels(TRAIN_TEST_LABEL_PATH)
 }
